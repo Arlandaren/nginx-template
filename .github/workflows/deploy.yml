@@ -1,0 +1,93 @@
+name: Build & Deploy
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  DEPLOY_PATH: /home/nginx-server
+  SERVER_DOMAIN: ----
+  SERVER_USER: root
+
+jobs:
+
+  build_and_deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Установка Docker Buildx и логин в Docker Hub
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_TOKEN }}
+
+      # Создание .env из base64-секрета
+      - name: Create .env file
+        run: |
+          echo "${{ secrets.ENV_FILE_BASE64 }}" | base64 --decode > .env
+
+      # Сборка Docker-образа
+      - name: Build Docker image
+        run: docker compose --env-file=.env build
+
+      # Сохранение Docker-образа в tar-файл
+      - name: Save Docker image
+        run: docker save -o image.tar app:latest
+
+      # Настройка SSH
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY_BASE64 }}" | base64 --decode > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ env.SERVER_DOMAIN }} >> ~/.ssh/known_hosts
+
+      # Создание директории на сервере
+      - name: Create remote directory
+        run: |
+          ssh -o StrictHostKeyChecking=no \
+            ${{ env.SERVER_USER }}@${{ env.SERVER_DOMAIN }} \
+            "mkdir -p ${{ env.DEPLOY_PATH }}"
+
+      # Установка rsync
+      - name: Install rsync
+        run: sudo apt-get update && sudo apt-get install -y rsync
+
+      # Синхронизация файлов
+      - name: Sync files to server
+        run: |
+          rsync -avz --delete \
+            --exclude='.git/' \
+            --exclude='node_modules/' \
+            -e "ssh -o StrictHostKeyChecking=no" \
+            ./ \
+            ${{ env.SERVER_USER }}@${{ env.SERVER_DOMAIN }}:${{ env.DEPLOY_PATH }}/
+
+      # Запуск контейнеров на сервере
+      - name: Load Docker image and start containers
+        run: |
+          ssh -o StrictHostKeyChecking=no \
+            ${{ env.SERVER_USER }}@${{ env.SERVER_DOMAIN }} -p 22 "
+            if ! command -v docker &> /dev/null; then
+              echo 'Docker is not installed!'
+              exit 1
+            fi
+            cd $DEPLOY_PATH
+            docker load -i image.tar || { echo 'Failed to load Docker image'; exit 1; }
+            docker compose --env-file=.env up -d --force-recreate || { echo 'Failed to start containers'; exit 1; }
+            echo 'Deployed!'
+          "
+
+      - name: Post-deploy cleanup
+        run: |
+          ssh -o StrictHostKeyChecking=no \
+            ${{ env.SERVER_USER }}@${{ env.SERVER_DOMAIN }} "
+            docker system prune -a -f      # Удаляем оставшийся мусор
+            rm -f image.tar
+          "
