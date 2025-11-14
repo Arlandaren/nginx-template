@@ -1,0 +1,49 @@
+services:
+  nginx:
+    image: nginx:1.24-alpine
+    container_name: nginx-proxy
+    hostname: nginx-proxy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/sites/:/etc/nginx/sites-enabled/:ro
+      - ./nginx/snippets/:/etc/nginx/snippets/:ro
+      - ./nginx/ssl/:/etc/nginx/ssl/:ro
+      - ./certbot/conf/:/etc/letsencrypt/:ro
+      - ./certbot/www/:/var/www/certbot/:ro
+      - ./logs/nginx/:/var/log/nginx/
+      - nginx-cache:/var/cache/nginx
+    healthcheck:
+      test: ["CMD", "nginx", "-t"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    cap_add:
+      - NET_BIND_SERVICE
+    network_mode: "host"
+
+  certbot:
+    image: certbot/certbot
+    container_name: certbot
+    restart: unless-stopped
+    volumes:
+      - ./certbot/conf/:/etc/letsencrypt/
+      - ./certbot/www/:/var/www/certbot/
+    network_mode: "host"
+    entrypoint: |
+      /bin/sh -c '
+      trap exit TERM;
+      while :; do
+        echo "Проверка обновления SSL сертификатов...";
+        certbot renew --quiet;
+        echo "Проверка завершена. Следующая проверка через 12 часов...";
+        sleep 12h & wait $${!};
+      done'
+    environment:
+      - NGINX_PROXY_CONTAINER=nginx-proxy
+
+volumes:
+  nginx-cache:
