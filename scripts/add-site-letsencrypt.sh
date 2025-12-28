@@ -16,7 +16,7 @@ FULL_DOMAIN="$DOMAIN.com"
 echo "Добавление сайта $FULL_DOMAIN на порт $PORT с Let's Encrypt..."
 
 # Создаем конфиг из шаблона
-cp /home/nginx/nginx/sites/template.conf /home/nginx/nginx/sites/$DOMAIN.conf
+cp /home/nginx/nginx/templates/template.conf /home/nginx/nginx/sites/$DOMAIN.conf
 sed -i "s/{domain}/$DOMAIN/g" /home/nginx/nginx/sites/$DOMAIN.conf
 sed -i "s/{port}/$PORT/g" /home/nginx/nginx/sites/$DOMAIN.conf
 
