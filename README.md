@@ -1,5 +1,13 @@
 # 🚀 Nginx Proxy Manager в Docker
 
+rsync -avz --delete \
+            --exclude='.git/' \
+            --exclude='node_modules/' \
+            -e "ssh -i /path/ -o StrictHostKeyChecking=no" \
+            ./ \
+            root@addr:/home/nginx/
+
+
 Полная система для проксирования Docker приложений через Nginx с SSL.
 
 ## 📁 Структура
