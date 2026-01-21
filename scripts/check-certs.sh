@@ -1,13 +1,16 @@
 #!/bin/bash
 
+# Определяем корень проекта
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
 echo "🔍 Проверка статуса SSL сертификатов..."
 
-cd /home/nginx
+cd "$PROJECT_ROOT"
 
 echo "📋 Список сертификатов в certbot:"
 # Используем прямое обращение к certbot без docker compose run
 docker run --rm \
-  -v /home/nginx/certbot/conf:/etc/letsencrypt \
+  -v "$PROJECT_ROOT/certbot/conf:/etc/letsencrypt" \
   certbot/certbot certificates
 
 echo ""
@@ -19,7 +22,7 @@ for conf_file in nginx/sites/*.conf; do
         # Ищем домены с Let's Encrypt
         DOMAIN=$(grep -o "ssl_certificate /etc/letsencrypt/live/[^/]*" "$conf_file" | cut -d'/' -f6 | head -1)
         if [ ! -z "$DOMAIN" ]; then
-            CERT_FILE="/home/nginx/certbot/conf/live/$DOMAIN/fullchain.pem"
+            CERT_FILE="$PROJECT_ROOT/certbot/conf/live/$DOMAIN/fullchain.pem"
             if [ -f "$CERT_FILE" ]; then
                 EXPIRY_DATE=$(openssl x509 -in "$CERT_FILE" -noout -enddate | cut -d= -f2)
                 DAYS_LEFT=$(( ($(date -d "$EXPIRY_DATE" +%s) - $(date +%s)) / 86400 ))
@@ -32,7 +35,7 @@ for conf_file in nginx/sites/*.conf; do
         # Ищем домены с self-signed
         DOMAIN_SELF=$(grep -o "ssl_certificate /etc/nginx/ssl/sites/[^/]*" "$conf_file" | cut -d'/' -f6 | head -1)
         if [ ! -z "$DOMAIN_SELF" ] && [ "$DOMAIN_SELF" != "$DOMAIN" ]; then
-            CERT_FILE_SELF="/home/nginx/nginx/ssl/sites/$DOMAIN_SELF/fullchain.pem"
+            CERT_FILE_SELF="$PROJECT_ROOT/nginx/ssl/sites/$DOMAIN_SELF/fullchain.pem"
             if [ -f "$CERT_FILE_SELF" ]; then
                 echo "  🔄 $DOMAIN_SELF: используется self-signed сертификат"
             else
@@ -44,9 +47,9 @@ done
 
 echo ""
 echo "📁 Проверка структуры certbot:"
-if [ -d "/home/nginx/certbot/conf/live" ]; then
+if [ -d "$PROJECT_ROOT/certbot/conf/live" ]; then
     echo "  📂 Домены в certbot:"
-    ls -la /home/nginx/certbot/conf/live/ 2>/dev/null | grep "^d" | awk '{print "    🏷️  " $9}'
+    ls -la "$PROJECT_ROOT/certbot/conf/live/" 2>/dev/null | grep "^d" | awk '{print "    🏷️  " $9}'
 else
     echo "  ❌ Папка certbot/conf/live не существует"
 fi

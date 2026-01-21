@@ -1,8 +1,11 @@
 #!/bin/bash
 
+# Определяем корень проекта
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
 echo "Принудительное обновление SSL сертификатов..."
 
-cd /home/nginx
+cd "$PROJECT_ROOT"
 
 # Останавливаем временно nginx для обновления
 docker compose stop nginx
