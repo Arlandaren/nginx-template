@@ -21,47 +21,41 @@ SAFE_FILENAME=$(echo "$DOMAIN" | sed 's/\./_/g')
 
 echo "🚀 Начинаем установку сайта $DOMAIN на порт $PORT..."
 
-# 1. Останавливаем Nginx, чтобы Certbot мог использовать 80 порт (standalone режим)
-echo "1️⃣  Временная остановка Nginx для получения сертификатов..."
-cd "$PROJECT_ROOT"
-docker compose stop nginx
+# 1. Создаем временную конфигурацию для HTTP-01 вызова (если сайт новый)
+# Или просто используем существующий конфиг если он есть.
+# В нашем шаблоне уже есть обработка /.well-known/acme-challenge/
+echo "1️⃣  Подготовка конфигурации Nginx..."
+if [ ! -f "$PROJECT_ROOT/nginx/sites/$SAFE_FILENAME.conf" ]; then
+    cp "$PROJECT_ROOT/nginx/templates/template.conf" "$PROJECT_ROOT/nginx/sites/$SAFE_FILENAME.conf"
+    sed -i "s/{domain}/$DOMAIN/g" "$PROJECT_ROOT/nginx/sites/$SAFE_FILENAME.conf"
+    sed -i "s/{port}/$PORT/g" "$PROJECT_ROOT/nginx/sites/$SAFE_FILENAME.conf"
+    
+    # Временно комментируем SSL блок, так как сертов еще нет
+    sed -i '18,44s/^/#/' "$PROJECT_ROOT/nginx/sites/$SAFE_FILENAME.conf"
+    
+    echo "Перезапуск Nginx для применения временного конфига..."
+    docker compose exec nginx nginx -s reload || docker compose restart nginx
+fi
 
-# 2. Получаем сертификат Let's Encrypt
-echo "2️⃣  Запрос сертификата у Let's Encrypt (через standalone)..."
-# Мы пробуем получить сертификат для основного домена. 
-# Если нужен www, добавьте его через -d www.$DOMAIN
-docker run --rm \
-  -v "$PROJECT_ROOT/certbot/conf:/etc/letsencrypt" \
-  -v "$PROJECT_ROOT/certbot/www:/var/www/certbot" \
-  -p 80:80 \
-  -p 443:443 \
-  certbot/certbot certonly \
-  --standalone \
+# 2. Получаем сертификат Let's Encrypt через webroot
+echo "2️⃣  Запрос сертификата у Let's Encrypt (через webroot)..."
+docker compose run --rm certbot certonly \
+  --webroot \
+  --webroot-path=/var/www/certbot \
   --email "$EMAIL" \
   --agree-tos \
   --no-eff-email \
   --non-interactive \
   -d "$DOMAIN"
 
-# 3. Создаем конфигурационный файл из шаблона
-echo "3️⃣  Создание конфигурации Nginx..."
-cp "$PROJECT_ROOT/nginx/templates/template.conf" "$PROJECT_ROOT/nginx/sites/$SAFE_FILENAME.conf"
+# 3. Активируем SSL в конфигурации
+echo "3️⃣  Активация SSL конфигурации..."
+# Раскомментируем HTTPS блок
+sed -i '18,44s/^#//' "$PROJECT_ROOT/nginx/sites/$SAFE_FILENAME.conf"
 
-# Заменяем {domain} и {port}
-sed -i "s/{domain}/$DOMAIN/g" "$PROJECT_ROOT/nginx/sites/$SAFE_FILENAME.conf"
-sed -i "s/{port}/$PORT/g" "$PROJECT_ROOT/nginx/sites/$SAFE_FILENAME.conf"
-
-# Исправляем пути к SSL (меняем стандартные на Let's Encrypt)
-sed -i "s|/etc/nginx/ssl/sites/$DOMAIN/fullchain.pem|/etc/letsencrypt/live/$DOMAIN/fullchain.pem|g" "$PROJECT_ROOT/nginx/sites/$SAFE_FILENAME.conf"
-sed -i "s|/etc/nginx/ssl/sites/$DOMAIN/privkey.pem|/etc/letsencrypt/live/$DOMAIN/privkey.pem|g" "$PROJECT_ROOT/nginx/sites/$SAFE_FILENAME.conf"
-
-# 4. Запускаем Nginx обратно
-echo "4️⃣  Запуск Nginx с новой конфигурацией..."
-docker compose start nginx
-
-# 5. Проверяем конфиг и делаем релоад на всякий случай
-docker compose exec nginx nginx -t
-docker compose exec nginx nginx -s reload
+# 4. Проверяем конфиг и делаем релоад
+echo "4️⃣  Применение финальной конфигурации..."
+docker compose exec nginx nginx -t && docker compose exec nginx nginx -s reload
 
 echo "--------------------------------------------------"
 echo "✅ Все готово! Сайт $DOMAIN настроен."

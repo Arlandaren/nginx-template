@@ -12,18 +12,24 @@ services:
       - ./nginx/sites/:/etc/nginx/sites-enabled/:ro
       - ./nginx/snippets/:/etc/nginx/snippets/:ro
       - ./nginx/ssl/:/etc/nginx/ssl/:ro
+      - ./nginx/html/:/etc/nginx/html/:ro
       - ./certbot/conf/:/etc/letsencrypt/:ro
       - ./certbot/www/:/var/www/certbot/:ro
       - ./logs/nginx/:/var/log/nginx/
       - nginx-cache:/var/cache/nginx
     healthcheck:
-      test: ["CMD", "nginx", "-t"]
+      test: [ "CMD", "nginx", "-t" ]
       interval: 30s
       timeout: 10s
       retries: 3
     cap_add:
       - NET_BIND_SERVICE
     network_mode: "host"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   certbot:
     image: certbot/certbot
