@@ -1,44 +1,42 @@
 #!/bin/bash
 
+# Скрипт для удаления сайта и его сертификатов
+# Использование: ./remove-site.sh <domain>
+
 set -e
 
 # Определяем корень проекта
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 if [ -z "$1" ]; then
-    echo "Использование: ./remove-site.sh <domain>"
-    echo "Пример: ./remove-site.sh myapp"
+    echo "Использование: $0 <domain>"
+    echo "Пример: $0 mydomain.com"
     exit 1
 fi
 
 DOMAIN=$1
-FULL_DOMAIN="$DOMAIN"
+SAFE_FILENAME=$(echo "$DOMAIN" | sed 's/\./_/g')
 
-echo "🗑️ Удаление сайта $DOMAIN"
+echo "🗑️ Удаление сайта $DOMAIN..."
 
-# Удаляем конфиг
-rm -f "$PROJECT_ROOT/nginx/sites/$DOMAIN.conf"
-
-# Удаляем self-signed SSL сертификаты
-rm -rf "$PROJECT_ROOT/nginx/ssl/sites/$FULL_DOMAIN"
-
-# Удаляем Let's Encrypt сертификаты (если есть)
-if [ -d "$PROJECT_ROOT/certbot/conf/live/$FULL_DOMAIN" ]; then
-    echo "🔐 Удаление Let's Encrypt сертификата для $FULL_DOMAIN"
-    docker run --rm \
-        -v "$PROJECT_ROOT/certbot/conf:/etc/letsencrypt" \
-        certbot/certbot delete --cert-name $FULL_DOMAIN --non-interactive
-    rm -rf "$PROJECT_ROOT/certbot/conf/live/$FULL_DOMAIN"
-    rm -rf "$PROJECT_ROOT/certbot/conf/archive/$FULL_DOMAIN"
-    rm -rf "$PROJECT_ROOT/certbot/conf/renewal/${FULL_DOMAIN}.conf"
+# 1. Удаляем конфиг (пробуем оба варианта имени файла)
+if [ -f "$PROJECT_ROOT/nginx/sites/$DOMAIN.conf" ]; then
+    rm -f "$PROJECT_ROOT/nginx/sites/$DOMAIN.conf"
+elif [ -f "$PROJECT_ROOT/nginx/sites/$SAFE_FILENAME.conf" ]; then
+    rm -f "$PROJECT_ROOT/nginx/sites/$SAFE_FILENAME.conf"
 fi
 
-# Релоад nginx
+# 2. Удаляем Let's Encrypt сертификаты (через официальный механизм)
+if [ -d "$PROJECT_ROOT/certbot/conf/live/$DOMAIN" ]; then
+    echo "🔐 Удаление сертификатов Let's Encrypt для $DOMAIN..."
+    docker run --rm \
+        -v "$PROJECT_ROOT/certbot/conf:/etc/letsencrypt" \
+        certbot/certbot delete --cert-name "$DOMAIN" --non-interactive
+fi
+
+# 3. Релоад Nginx
+echo "🔄 Обновление конфигурации Nginx..."
 cd "$PROJECT_ROOT"
 docker compose exec nginx nginx -s reload
 
-echo "✅ Сайт $DOMAIN удален!"
-echo "🗂️  Удалено:"
-echo "   📝 Конфиг: $PROJECT_ROOT/nginx/sites/$DOMAIN.conf"
-echo "   🔐 Self-signed SSL: $PROJECT_ROOT/nginx/ssl/sites/$FULL_DOMAIN"
-echo "   🎫 Let's Encrypt: $PROJECT_ROOT/certbot/conf/live/$FULL_DOMAIN"
+echo "✅ Сайт $DOMAIN полностью удален!"

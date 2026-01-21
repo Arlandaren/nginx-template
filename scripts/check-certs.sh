@@ -32,16 +32,6 @@ for conf_file in nginx/sites/*.conf; do
             fi
         fi
         
-        # Ищем домены с self-signed
-        DOMAIN_SELF=$(grep -o "ssl_certificate /etc/nginx/ssl/sites/[^/]*" "$conf_file" | cut -d'/' -f6 | head -1)
-        if [ ! -z "$DOMAIN_SELF" ] && [ "$DOMAIN_SELF" != "$DOMAIN" ]; then
-            CERT_FILE_SELF="$PROJECT_ROOT/nginx/ssl/sites/$DOMAIN_SELF/fullchain.pem"
-            if [ -f "$CERT_FILE_SELF" ]; then
-                echo "  🔄 $DOMAIN_SELF: используется self-signed сертификат"
-            else
-                echo "  ⚠️  $DOMAIN_SELF: SSL сертификат отсутствует"
-            fi
-        fi
     fi
 done
 
