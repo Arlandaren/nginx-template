@@ -1,8 +1,11 @@
 #!/bin/bash
 
-echo "📊 Статус Nginx stack:"
+# Определяем корень проекта
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-cd /home/nginx
+echo "📊 Статус Nginx stack..."
+
+cd "$PROJECT_ROOT"
 docker compose ps
 
 echo ""

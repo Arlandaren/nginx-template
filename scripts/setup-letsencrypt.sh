@@ -2,6 +2,9 @@
 
 set -e
 
+# Определяем корень проекта
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
 if [ -z "$1" ]; then
     echo "Использование: ./setup-letsencrypt.sh <domain> [email]"
     echo "Пример: ./setup-letsencrypt.sh mydomain.com my@email.com"
@@ -38,10 +41,10 @@ server {
 TEMPLATE
 
 # Копируем временный конфиг
-cp $TEMP_CONF /home/nginx/nginx/sites/temp-$DOMAIN.conf
+cp $TEMP_CONF "$PROJECT_ROOT/nginx/sites/temp-$DOMAIN.conf"
 
 # Перезагружаем nginx для применения временного конфига
-cd /home/nginx
+cd "$PROJECT_ROOT"
 docker compose exec nginx nginx -s reload
 
 echo "Получение SSL сертификата от Let's Encrypt..."
@@ -58,13 +61,13 @@ docker compose run --rm certbot certonly \
     -d www.$DOMAIN
 
 # Удаляем временный конфиг
-rm -f /home/nginx/nginx/sites/temp-$DOMAIN.conf
+rm -f "$PROJECT_ROOT/nginx/sites/temp-$DOMAIN.conf"
 
 # Перезагружаем nginx снова
 docker compose exec nginx nginx -s reload
 
 echo "Let's Encrypt успешно настроен для $DOMAIN!"
-echo "Сертификаты расположены в: /home/nginx/certbot/conf/live/$DOMAIN/"
+echo "Сертификаты расположены в: $PROJECT_ROOT/certbot/conf/live/$DOMAIN/"
 echo "Автообновление настроено (проверка каждые 12 часов)"
 
 # Показываем информацию о сертификате

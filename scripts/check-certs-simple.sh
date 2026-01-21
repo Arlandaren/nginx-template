@@ -1,8 +1,11 @@
 #!/bin/bash
 
+# Определяем корень проекта
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
 echo "🔍 Простая проверка SSL сертификатов..."
 
-cd /home/nginx
+cd "$PROJECT_ROOT"
 
 echo "📁 Домены с Let's Encrypt:"
 if [ -d "certbot/conf/live" ]; then
