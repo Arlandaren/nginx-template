@@ -8,6 +8,21 @@ rsync -avz --delete \
             root@addr:/home/nginx/
 
 
+rsync -avz --delete \
+            --exclude='.git/' \
+            --exclude='node_modules/' \
+            --exclude='nginx/sites-enabled/*.conf' \
+            --exclude='nginx/conf.d/*.conf' \
+            -e "ssh -i /path/ -o StrictHostKeyChecking=no" \
+            ./ \
+            root@addr:/home/nginx/
+
+# Список папок и файлов для обновления
+rsync -avz -e "ssh -i /path/" ./nginx/nginx.conf root@addr:/home/nginx/nginx/
+rsync -avz -e "ssh -i /path/" ./nginx/snippets/ root@addr:/home/nginx/nginx/snippets/
+rsync -avz -e "ssh -i /path/" ./nginx/templates/ root@addr:/home/nginx/nginx/templates/
+rsync -avz -e "ssh -i /path/" ./scripts/ root@addr:/home/nginx/scripts/
+
 Полная система для проксирования Docker приложений через Nginx с SSL.
 
 ## 📁 Структура
