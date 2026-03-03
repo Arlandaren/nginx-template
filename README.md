@@ -1,161 +1,118 @@
-# 🚀 Nginx Proxy Manager в Docker
+# 🚀 nginx-template: The KISS Reverse Proxy
 
-Обновления конфига nginx
-rsync -avz -e "ssh -i /path" \
-    --exclude ".git/" \
-    --exclude ".github/" \
-    --exclude "logs/" \
-    --exclude "certbot/" \
-    /path \
-    root@server:/path
+Легковесный, производительный и безопасный Docker-стек (Nginx + Certbot) для управления сайтами, SSL-сертификатами и проксированием. 
 
-Полная система для проксирования Docker приложений через Nginx с SSL.
+Идеальная замена Nginx Proxy Manager / Traefik для тех, кто предпочитает терминал, Bash и минимальное потребление ресурсов (Zero Overhead).
 
-## 📁 Структура
-/home/nginx/
-├── docker-compose.yml
-├── nginx/
-│ ├── nginx.conf # Основной конфиг
-│ ├── sites/ # Конфиги сайтов
-│ ├── snippets/ # Сниппеты
-│ └── ssl/ # SSL сертификаты
-├── logs/ # Логи
-├── certbot/ # Certbot
-├── scripts/ # Скрипты управления
-└── apps/ # Примеры приложений
+![Nginx](https://img.shields.io/badge/nginx-%23009639.svg?style=for-the-badge&logo=nginx&logoColor=white) ![Docker](https://img.shields.io/badge/docker-%230db7ed.svg?style=for-the-badge&logo=docker&logoColor=white) ![Bash](https://img.shields.io/badge/bash-4EAA25?style=for-the-badge&logo=gnu-bash&logoColor=white)
 
+## ✨ Ключевые возможности
+
+- 🪶 **Zero Overhead:** Никаких баз данных и фоновых Node.js процессов для админки. Только голый Nginx в Docker-контейнере.
+- 🔐 **Автоматический SSL:** Выпуск и продление сертификатов Let's Encrypt «из коробки» (без даунтайма).
+- 🛡️ **Enterprise Security (A+):** Предустановленные заголовки безопасности (HSTS, CSP, X-Frame-Options) и защита от базовых эксплойтов.
+- 🖼️ **Image Proxy:** Встроенный ресайз и кроп картинок на лету (через `http_image_filter_module`).
+- ⚡ **Умный CDN:** Поднятие кеширующего прокси-узла для статики с S3/MinIO одной командой.
+- ☁️ **Cloudflare интеграция:** Автоматическое обновление реальных IP-адресов Cloudflare.
 
 ## 🚀 Быстрый старт
 
-1. **Инициализация SSL**:
-   ```bash
-   ./scripts/init-ssl.sh
-Запуск системы:
-
-bash
-./scripts/start.sh
-Добавление сайта:
-
-bash
-./scripts/add-site.sh myapp 3000
-⚡ Скрипты управления
-./scripts/start.sh - Запуск
-
-./scripts/stop.sh - Остановка
-
-./scripts/restart.sh - Перезапуск
-
-./scripts/reload.sh - Reload конфигурации
-
-./scripts/status.sh - Статус сервисов
-
-./scripts/logs.sh - Логи
-
-./scripts/add-site.sh domain port - Добавить сайт
-
-./scripts/remove-site.sh domain - Удалить сайт
-
-./scripts/check-config.sh - Проверить конфигурацию
-
-🌐 Пример использования
-bash
-# Добавляем React приложение на порту 3000
-./scripts/add-site.sh reactapp 3000
-
-# Добавляем API на порту 8000
-./scripts/add-site.sh myapi 8000
-
-# Проверяем конфигурацию
-./scripts/check-config.sh
-🔧 Настройка DNS
-Добавьте в /etc/hosts для тестирования:
-
-127.0.0.1 frontend.com
-127.0.0.1 api.com
-127.0.0.1 reactapp.com
-127.0.0.1 myapi.com
-📝 Примечания
-Система проксирует запросы на 127.0.0.1:PORT
-
-Для продакшена замените тестовые SSL сертификаты
-
-Все конфиги автоматически перезагружаются
-
-Логи доступны в logs/nginx/
-
-🐛 Troubleshooting
-Проверить конфигурацию:
-
-bash
-./scripts/check-config.sh
-docker compose logs nginx
-Проверить проксирование:
-
-bash
-curl -H "Host: frontend.com" http://localhost
-<br><br><br>
----
-<br><br><br>
-
-# Let's Encrypt Integration
-
-Полная интеграция с Let's Encrypt для автоматического получения и обновления SSL сертификатов.
-
-## Быстрый старт
-
-### Способ 1: Добавление нового сайта с Let's Encrypt
+### 1. Установка
 ```bash
-./scripts/add-site-le.sh myapp 3000 my@email.com
-Способ 2: Миграция существующего сайта
-bash
-./scripts/migrate-to-letsencrypt.sh myapp my@email.com
-Способ 3: Ручная настройка
-bash
-# 1. Добавить сайт (создаст self-signed)
-./scripts/add-site.sh myapp 3000
+git clone https://github.com/Arlandaren/nginx-template.git /opt/nginx
+cd /opt/nginx
+./manage.sh start
+```
 
-# 2. Мигрировать на Let's Encrypt
-./scripts/migrate-to-letsencrypt.sh myapp my@email.com
-Скрипты управления
-./scripts/setup-letsencrypt.sh <domain> [email] - Настройка Let's Encrypt для домена
+### 2. Добавление классического сайта с SSL
+Предположим, ваше приложение работает на `3000` порту на этом же сервере.
+```bash
+# ./manage.sh add <domain> <port> [email]
+./manage.sh add example.com 3000 my@email.com
+```
+Скрипт сам создаст конфиг, запросит сертификат у Let's Encrypt и мягко перезагрузит Nginx. Ваш сайт доступен по HTTPS!
 
-./scripts/migrate-to-letsencrypt.sh <domain> [email] - Миграция с self-signed
+## 🎮 Пульт управления: `manage.sh`
 
-./scripts/check-certs.sh - Проверка статуса сертификатов
+Единая точка входа для всех операций. Больше не нужно запоминать кучу разрозненных скриптов.
 
-./scripts/force-renew.sh - Принудительное обновление
+### Управление сайтами
+| Команда | Описание | Пример |
+|---------|----------|--------|
+| `add` | Добавить сайт (reverse-proxy) с SSL | `./manage.sh add api.domain.com 8080` |
+| `cdn` | Кеширующий прокси (статика) | `./manage.sh cdn static.domain.com https://min.io` |
+| `img` | Микросервис ресайза картинок | `./manage.sh img img.domain.com https://s3.aws.com` |
+| `remove`| Удалить сайт и его сертификаты | `./manage.sh remove example.com` |
+| `health`| Проверить статус всех сайтов | `./manage.sh health` |
 
-./scripts/add-site-le.sh <domain> <port> [email] - Добавить сайт с Let's Encrypt
+### Управление стеком (Nginx + Certbot)
+| Команда | Описание |
+|---------|----------|
+| `start`, `stop`, `restart` | Управление Docker-контейнерами |
+| `reload` | Мягкая перезагрузка Nginx (zero-downtime) |
+| `status` | Статус контейнеров |
+| `logs [-f]` | Просмотр логов Nginx и Certbot |
 
-Требования
-DNS настройки: Домен должен указывать на IP сервера
+### Обслуживание и аналитика
+| Команда | Описание |
+|---------|----------|
+| `check-certs` | Проверить сроки действия SSL сертификатов |
+| `update-cf-ips` | Обновить список IP Cloudflare (`set_real_ip_from`) |
+| `top` | Вывести ТОП активных IP-адресов из логов (анализ трафика) |
+| `rotate-logs` | Ручная ротация логов (защита диска от переполнения) |
+| `backup` | Создать архив (`.tar.gz`) всех конфигов и SSL-сертификатов |
 
-Открытые порты: 80 и 443 должны быть доступны извне
+## 📁 Структура проекта
+```text
+/opt/nginx/
+├── manage.sh           # Главный скрипт-роутер
+├── docker-compose.yml  # Декларация контейнеров
+├── nginx/
+│   ├── nginx.conf      # Глобальные настройки
+│   ├── sites/          # Сгенерированные конфиги сайтов
+│   ├── snippets/       # Переиспользуемые куски (security.conf, proxy.conf и т.д.)
+│   └── templates/      # Шаблоны конфигов (.conf)
+├── certbot/            # Директория Let's Encrypt (сертификаты)
+├── logs/               # Логи Nginx (access/error)
+└── scripts/            # Внутренние bash-скрипты системы
+```
 
-Email: Для уведомлений от Let's Encrypt (опционально)
+## 🧠 Продвинутые фичи
 
-Troubleshooting
-Проверить статус автообновления:
-bash
-docker compose logs certbot
-Проверить сроки действия:
-bash
-./scripts/check-certs.sh
-Принудительное обновление:
-bash
-./scripts/force-renew.sh
-Структура сертификатов
-text
-/home/nginx/certbot/conf/
-└── live/
-    └── domain.com/
-        ├── fullchain.pem
-        ├── privkey.pem
-        ├── chain.pem
-        └── cert.pem
-Важно
-Let's Encrypt имеет лимиты (50 сертификатов в неделю на домен)
+### Изменение размера изображений (Image Proxy)
+После вызова команды добавления Image Proxy:
+```bash
+./manage.sh img media.domain.com https://your-bucket.s3.com
+```
+Вы можете запрашивать изображения с нужными размерами прямо через URL:
+- Оригинал: `https://media.domain.com/photo.jpg`
+- Ресайз 800x600: `https://media.domain.com/photo.jpg?w=800&h=600`
+- Только ширина 500px: `https://media.domain.com/photo.jpg?w=500`
 
-Для тестирования используйте staging окружение
+Nginx автоматически загрузит оригинал с S3 (или любого origins), обрежет его, закеширует результат на диске и отдаст пользователю.
 
-Автообновление работает каждые 12 часов
+### Cloudflare и реальные IP
+Если сервер спрятан за Cloudflare, добавьте в `cron` задачу обновления IP, чтобы Nginx видел реальные IP клиентов, а не адреса нод CF:
+```bash
+0 0 * * 1 /opt/nginx/manage.sh update-cf-ips > /dev/null 2>&1
+```
+
+## 🐛 Решение проблем (Troubleshooting)
+
+1. **Сертификат не выписывается**
+   Убедитесь, что ваш домен точно делегирован на IP сервера и в фаерволе открыты порты `80` и `443`.
+   Посмотреть логи процесса:
+   ```bash
+   ./manage.sh logs -f
+   ```
+
+2. **Как добавить кастомную настройку Nginx?**
+   Все сайты хранятся в `./nginx/sites/`. После добавления сайта через `./manage.sh add`, вы можете отредактировать созданный файл (например, `./nginx/sites/example.com.conf`) в любом консольном редакторе, а затем выполнить перезагрузку:
+   ```bash
+   ./manage.sh reload
+   ```
+
+## 🤝 Контрибьют и Поддержка
+Пулл-реквесты категорически приветствуются! 
+
+Если проект сэкономил вам пару часов жизни, кучу оперативной памяти и помог поднять пет-проект — поставьте ⭐️ этому репозиторию. Код должен работать, а звезды — расти.
